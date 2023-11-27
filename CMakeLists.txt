@@ -11,3 +11,5 @@ include_directories(include)
 add_executable(follow main.cpp)	# 将main.cpp源文件编译成follow可执行文件
 target_link_libraries(follow OsqpEigen::OsqpEigen) #将osqpeigen库链接到可执行文件
 
+add_executable(follow_car follow_car.cpp)	
+target_link_libraries(follow_car OsqpEigen::OsqpEigen)
