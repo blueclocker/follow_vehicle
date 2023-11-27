@@ -3,8 +3,8 @@
  * @Version: 2.0
  * @Author: ZHAO B.T.
  * @Date: 2023-11-23 12:01:15
- * @LastEditors: ZHAO B.T.
- * @LastEditTime: 2023-11-26 22:47:56
+ * @LastEditors: wpbit
+ * @LastEditTime: 2023-11-27 13:42:51
  */
 #ifndef FOLLOWING_H
 #define FOLLOWING_H
@@ -28,9 +28,9 @@
 #include <cmath>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
-#include </home/zbt/lib/eigen-3.4.0/unsupported/Eigen/KroneckerProduct>
+#include <eigen3/unsupported/Eigen/KroneckerProduct>
+#include "osqp/osqp.h"
 #include "OsqpEigen/OsqpEigen.h"
-#include <osqp/osqp.h>
 // #include "matplotlibcpp.h"
 // namespace plt = matplotlibcpp;
 using namespace std;
