@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 3.0.2)			# cmake版本太低不行
+project(follow)						# 新建一个工程
+find_package(Eigen3 REQUIRED)                              #检索需要的库
+find_package(OsqpEigen REQUIRED)
+
+
+include_directories(${EIGEN3_INCLUDE_DIRS})   #连接头文件   
+include_directories(include)	
+
+
+add_executable(follow main.cpp)	# 将main.cpp源文件编译成follow可执行文件
+target_link_libraries(follow OsqpEigen::OsqpEigen) #将osqpeigen库链接到可执行文件
+
