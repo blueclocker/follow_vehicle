@@ -2,7 +2,7 @@
  * @Author: wpbit
  * @Date: 2023-11-27 14:07:12
  * @LastEditors: wpbit
- * @LastEditTime: 2023-11-27 16:18:55
+ * @LastEditTime: 2023-11-27 16:30:50
  * @Description: 
  */
 #include "./include/following.h"
@@ -13,7 +13,7 @@ int main()
     int horizon = 3;
 
     // 输入 {a, b}, a->相对车速，自车-目标车; b->相对距离，目标车-自车 > 0
-    std::vector<std::vector<double>> input{{5.0, 25.0}, {5.0, 15.0}, {5.0, 10.0}};
+    std::vector<std::vector<double>> input{{2.0, 20.0}, {2.0, 20.0}, {2.0, 20.0}};
 
     int num_variables = 3*horizon - 1;
     int num_constraints = 5*horizon - 3;
