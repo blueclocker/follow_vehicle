@@ -2,7 +2,7 @@
  * @Author: wpbit
  * @Date: 2023-11-27 14:07:12
  * @LastEditors: wpbit
- * @LastEditTime: 2023-11-27 16:30:50
+ * @LastEditTime: 2023-11-27 17:06:08
  * @Description: 
  */
 #include "./include/following.h"
@@ -63,8 +63,8 @@ int main()
         }
     }
     for(int i = 0; i < horizon-1; ++i){
-        lowerBound(start_index + 2*i) = -0.5;
-        lowerBound(start_index + 2*i+1) = -0.5;
+        lowerBound(start_index + 2*i) = 0;
+        lowerBound(start_index + 2*i+1) = 0;
     }
     Eigen::VectorXd upperBound(num_constraints);
     for(int i = 0; i < horizon; ++i){
@@ -78,8 +78,8 @@ int main()
         }
     }
     for(int i = 0; i < horizon-1; ++i){
-        upperBound(start_index + 2*i) = 0.5;
-        upperBound(start_index + 2*i+1) = 0.5;
+        upperBound(start_index + 2*i) = 0;
+        upperBound(start_index + 2*i+1) = 0;
     }
     // std::cout << lowerBound << std::endl;
     // std::cout << upperBound << std::endl;
