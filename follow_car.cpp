@@ -2,44 +2,71 @@
  * @Author: wpbit
  * @Date: 2023-11-27 14:07:12
  * @LastEditors: wpbit
- * @LastEditTime: 2023-11-27 17:06:08
+ * @LastEditTime: 2023-12-04 21:51:33
  * @Description: 
  */
 #include "./include/following.h"
 
-int main()
+class solver
 {
-    // 预测时刻
-    int horizon = 3;
+private:
+    int horizon_ = 0;
+    int num_variables_ = 0;
+    int num_constraints_ = 0;
+public:
+    solver(int horizon);
+    bool solve(std::vector<std::vector<double>> input, Eigen::VectorXd &out);
+    ~solver();
+};
 
-    // 输入 {a, b}, a->相对车速，自车-目标车; b->相对距离，目标车-自车 > 0
-    std::vector<std::vector<double>> input{{2.0, 20.0}, {2.0, 20.0}, {2.0, 20.0}};
+solver::solver(int horizon)
+{
+    horizon_ = horizon;
+    num_variables_ = 3*horizon - 1;
+    num_constraints_ = 5*horizon - 3;
+}
 
-    int num_variables = 3*horizon - 1;
-    int num_constraints = 5*horizon - 3;
+solver::~solver()
+{
+}
+
+bool solver::solve(std::vector<std::vector<double>> input, Eigen::VectorXd &out)
+{
+    for(int i = 0; i < horizon_; ++i){
+        input[i][0] -= 2.0;
+        input[i][1] -= 20.0;
+    }
 
     // QP参数矩阵
     // [v_r, d_r, a] * (horizon-1)
     // [v_r - 0, d_r - TARGET_D, a - 0]^T * [v_r - 0, d_r - TARGET_D, a - 0]的二次系数为H，一次为G
-    Eigen::MatrixXd H = Eigen::MatrixXd::Identity(num_variables, num_variables);
-    H(0, 0) = 0;
-    H(1 ,1) = 0;
-    Eigen::VectorXd G = Eigen::VectorXd::Zero(num_variables);
-    for(int i = 1; i < horizon; ++i){
-        G(3 * i + 1) = -2 * input[i][1];
+    Eigen::MatrixXd H = Eigen::MatrixXd::Identity(num_variables_, num_variables_);
+    // H(0, 0) = 0;
+    // H(1 ,1) = 0;
+    // 相对速度
+    for(int i = 1; i < horizon_; ++i){
+        H(i*3, i*3) = 50;
+    }
+    // 相对距离
+    // for(int i = 1; i < horizon; ++i){
+    //     H(i*3-1, i*3-1) = 10;
+    // }
+    Eigen::VectorXd G = Eigen::VectorXd::Zero(num_variables_);
+    for(int i = 1; i < horizon_; ++i){
+        G(3 * i + 1) = -2 * 20.0;
     }
     // std::cout << H << std::endl;
     // std::cout << G << std::endl;
 
     // 约束矩阵
-    Eigen::MatrixXd C = Eigen::MatrixXd::Zero(num_constraints, num_variables);
+    Eigen::MatrixXd C = Eigen::MatrixXd::Zero(num_constraints_, num_variables_);
     // 状态量和控制量不等式约束 3*horizon-1个
-    for(int i = 0; i < num_variables; ++i){
+    for(int i = 0; i < num_variables_; ++i){
         C(i, i) = 1;
     }
     // 状态方程等式约束 horizon-1个
-    int start_index = num_variables;
-    for(int i = 0; i < horizon-1; ++i){
+    int start_index = num_variables_;
+    for(int i = 0; i < horizon_-1; ++i){
         C(start_index + 2*i, 3 * (i+1)) = 1;
         C(start_index + 2*i, 3 * i) = -1;
         C(start_index + 2*i, 3 * i + 2) = -DT;
@@ -51,8 +78,8 @@ int main()
     // std::cout << C << std::endl;
 
     // 约束汇总
-    Eigen::VectorXd lowerBound(num_constraints);
-    for(int i = 0; i < horizon; ++i){
+    Eigen::VectorXd lowerBound(num_constraints_);
+    for(int i = 0; i < horizon_; ++i){
         if(i == 0){
             lowerBound(i) = input[0][0];
             lowerBound(i+1) = input[0][1];
@@ -62,12 +89,12 @@ int main()
             lowerBound(3 * i + 1) = MIN_D;
         }
     }
-    for(int i = 0; i < horizon-1; ++i){
+    for(int i = 0; i < horizon_-1; ++i){
         lowerBound(start_index + 2*i) = 0;
         lowerBound(start_index + 2*i+1) = 0;
     }
-    Eigen::VectorXd upperBound(num_constraints);
-    for(int i = 0; i < horizon; ++i){
+    Eigen::VectorXd upperBound(num_constraints_);
+    for(int i = 0; i < horizon_; ++i){
         if(i == 0){
             upperBound(i) = input[0][0];
             upperBound(i+1) = input[0][1];
@@ -77,7 +104,7 @@ int main()
             upperBound(3 * i + 1) = MAX_D;
         }
     }
-    for(int i = 0; i < horizon-1; ++i){
+    for(int i = 0; i < horizon_-1; ++i){
         upperBound(start_index + 2*i) = 0;
         upperBound(start_index + 2*i+1) = 0;
     }
@@ -92,7 +119,7 @@ int main()
     gradient = G;
     linearMatrix = C.sparseView();
 
-    static OsqpEigen::Solver solver;
+    OsqpEigen::Solver solver;
     // solver.settings()->setVerbosity(false);
     solver.settings()->setWarmStart(true);
     solver.data()->setNumberOfVariables(hessian.cols());
@@ -113,8 +140,85 @@ int main()
     if (static_cast<int>(solver.solveProblem()) != 0)
         return false;
 
-    Eigen::VectorXd output = solver.getSolution();
-    cout << output << endl;
+    out = solver.getSolution();
+    cout << out << endl;
+    return true;
+}
 
+
+int main()
+{
+    // 预测时刻
+    int horizon = 10;
+
+    // 输入 {a, b}, a->相对车速，自车-目标车; b->相对距离，目标车-自车 > 0
+    std::vector<std::vector<double>> input{{2.0, 20.0}, {2.0, 20.0}, {2.0, 20.0},
+                                           {2.0, 20.0}, {2.0, 20.0}, {2.0, 20.0},
+                                           {2.0, 20.0}, {2.0, 20.0}, {2.0, 20.0},
+                                           {2.0, 20.0}};
+
+    for (int sim = 0; sim < 200; sim++)
+    {
+        // 仿真参数初始化
+        float S_f = S0_f;
+        float S_r = S0_r;
+        float Speed_r = Speed0_r;
+        std::vector<float> Vec_Vr{2};
+        std::vector<float> Vec_t{0};
+        std::vector<float> Vec_D{S0_f - S0_r};
+        std::vector<float> Vec_Acc{0};
+
+        Eigen::VectorXd out;
+        solver test(horizon);
+        test.solve(input, out);
+
+        // 状态更新
+        // 前车状态更新
+        S_f = S_f + Speed_f * DT;
+        // 后车状态更新
+        float AccNew = out(2);
+        Speed_r = Speed_r + AccNew * DT;
+        S_r = S_r + Speed_r * DT + 0.5 * AccNew * DT * DT;
+
+        input[0][0] = Speed_r - Speed_f;
+        input[0][1] = S_f - S_r;
+
+        std::cout << "相对速度:" << input[0][0] << std::endl;
+        std::cout << "相对车距:" << input[0][1] << std::endl;
+
+        Vec_D.push_back(S_f - S_r);
+        Vec_Vr.push_back(Speed_r - Speed_f);
+        Vec_t.push_back((sim + 1) * DT);
+        Vec_Acc.push_back(AccNew);
+    }
+
+    plt::figure_size(1500, 500);
+    plt::subplot(1, 3, 1);
+    plt::plot(Vec_t, Vec_Vr, "b-");
+    plt::xlim(0, int(Vec_t.back()));
+    plt::ylim(0, 15);
+    plt::xlabel("t (s)");
+    plt::ylabel("Vel (km/h)");
+    plt::title("Vel-t");
+    plt::grid(1);
+
+    plt::subplot(1, 3, 2);
+    plt::plot(Vec_t, Vec_Acc, "b-");
+    plt::xlim(0, int(Vec_t.back()));
+    plt::ylim(-10, 10);
+    plt::xlabel("t (s)");
+    plt::ylabel("Acc (m/s2)");
+    plt::title("Acc-t");
+    plt::grid(1);
+
+    plt::subplot(1, 3, 3);
+    plt::plot(Vec_t, Vec_D, "r-");
+    plt::xlim(0, int(Vec_t.back()));
+    plt::ylim(0, 30);
+    plt::xlabel("t (s)");
+    plt::ylabel("D (m)");
+    plt::title("D-t");
+    plt::grid(1);
+    plt::show();
     return 0;
 }
