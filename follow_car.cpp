@@ -2,7 +2,7 @@
  * @Author: wpbit
  * @Date: 2023-11-27 14:07:12
  * @LastEditors: wpbit
- * @LastEditTime: 2023-12-05 14:44:03
+ * @LastEditTime: 2023-12-05 16:43:46
  * @Description:
  */
 #include "./include/following.h"
@@ -50,7 +50,7 @@ bool solver::solve(std::vector<std::vector<double>> input, Eigen::VectorXd &out)
         // 相对速度
         H(i * 3, i * 3) = 1;
         // 相对距离
-        H(i * 3 + 1, i * 3 + 1) = 1.8;
+        H(i * 3 + 1, i * 3 + 1) = 2.0;
         // 加速度
         if(i == horizon_ - 1) break;
         H(3 * i + 2, 3 * i + 2) = 1.5;
@@ -171,7 +171,7 @@ bool solver::solve(std::vector<std::vector<double>> input, Eigen::VectorXd &out)
 int main()
 {
     // 预测时刻
-    int horizon = 10;
+    int horizon = 20;
 
     // 仿真参数初始化
     float S_f = S0_f;
