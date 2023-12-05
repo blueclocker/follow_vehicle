@@ -2,7 +2,7 @@
  * @Author: wpbit
  * @Date: 2023-11-27 14:07:12
  * @LastEditors: wpbit
- * @LastEditTime: 2023-12-05 14:33:39
+ * @LastEditTime: 2023-12-05 14:44:03
  * @Description:
  */
 #include "./include/following.h"
@@ -45,16 +45,17 @@ bool solver::solve(std::vector<std::vector<double>> input, Eigen::VectorXd &out)
     Eigen::MatrixXd H = Eigen::MatrixXd::Identity(num_variables_, num_variables_);
     // H(0, 0) = 0;
     // H(1 ,1) = 0;
-    // 相对速度
     for (int i = 0; i < horizon_; ++i)
     {
+        // 相对速度
         H(i * 3, i * 3) = 1;
-    }
-    // 相对距离
-    for (int i = 0; i < horizon_; ++i)
-    {
+        // 相对距离
         H(i * 3 + 1, i * 3 + 1) = 1.8;
+        // 加速度
+        if(i == horizon_ - 1) break;
+        H(3 * i + 2, 3 * i + 2) = 1.5;
     }
+    
     Eigen::VectorXd G = Eigen::VectorXd::Zero(num_variables_);
     for (int i = 0; i < horizon_; ++i)
     {
@@ -176,7 +177,7 @@ int main()
     float S_f = S0_f;
     float S_r = S0_r;
     float Speed_r = Speed0_r;
-    std::vector<float> Vec_Vr{-2};
+    std::vector<float> Vec_Vr{-Speed_f};
     std::vector<float> Vec_t{0};
     std::vector<float> Vec_D{S0_f - S0_r};
     std::vector<float> Vec_Acc{0};
