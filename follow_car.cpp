@@ -1,8 +1,8 @@
 /*
  * @Author: wpbit
  * @Date: 2023-11-27 14:07:12
- * @LastEditors: ZHAO B.T.
- * @LastEditTime: 2023-12-04 22:49:27
+ * @LastEditors: wpbit
+ * @LastEditTime: 2023-12-05 14:33:39
  * @Description:
  */
 #include "./include/following.h"
@@ -33,11 +33,11 @@ solver::~solver()
 
 bool solver::solve(std::vector<std::vector<double>> input, Eigen::VectorXd &out)
 {
-    for (int i = 0; i < horizon_; ++i)
-    {
-        // input[i][0] -= 2.0;
-        input[i][1] -= 20.0;
-    }
+    // for (int i = 0; i < horizon_; ++i)
+    // {
+    //     // input[i][0] -= 2.0;
+    //     input[i][1] -= 20.0;
+    // }
 
     // QP参数矩阵
     // [v_r, d_r, a] * (horizon-1)
@@ -46,19 +46,20 @@ bool solver::solve(std::vector<std::vector<double>> input, Eigen::VectorXd &out)
     // H(0, 0) = 0;
     // H(1 ,1) = 0;
     // 相对速度
-    for (int i = 1; i < horizon_; ++i)
+    for (int i = 0; i < horizon_; ++i)
     {
-        H(i * 3, i * 3) = 0;
+        H(i * 3, i * 3) = 1;
     }
     // 相对距离
-    for (int i = 1; i < horizon_; ++i)
+    for (int i = 0; i < horizon_; ++i)
     {
-        H(i * 3 - 1, i * 3 - 1) = 10;
+        H(i * 3 + 1, i * 3 + 1) = 1.8;
     }
     Eigen::VectorXd G = Eigen::VectorXd::Zero(num_variables_);
-    for (int i = 1; i < horizon_; ++i)
+    for (int i = 0; i < horizon_; ++i)
     {
-        G(3 * i + 1) = -2 * 20.0;
+        G(3 * i + 1) = -2 * TARGET_D;
+        G(3 * i) = 2 * (Speed_f - TARGET_SPEED);
     }
     // std::cout << H << std::endl;
     // std::cout << G << std::endl;
@@ -92,11 +93,13 @@ bool solver::solve(std::vector<std::vector<double>> input, Eigen::VectorXd &out)
         {
             lowerBound(i) = input[0][0];
             lowerBound(i + 1) = input[0][1];
+            // lowerBound(i) = MIN_SPEED - Speed_f;
+            // lowerBound(i + 1) = MIN_D;
         }
         else
         {
             lowerBound(3 * i - 1) = MIN_ACC;
-            lowerBound(3 * i) = -2.0;
+            lowerBound(3 * i) = MIN_SPEED - Speed_f;
             lowerBound(3 * i + 1) = MIN_D;
         }
     }
@@ -112,11 +115,13 @@ bool solver::solve(std::vector<std::vector<double>> input, Eigen::VectorXd &out)
         {
             upperBound(i) = input[0][0];
             upperBound(i + 1) = input[0][1];
+            // upperBound(i) = MAX_SPEED - Speed_f;
+            // upperBound(i + 1) = MAX_D;
         }
         else
         {
             upperBound(3 * i - 1) = MAX_ACC;
-            upperBound(3 * i) = 2.0;
+            upperBound(3 * i) = MAX_SPEED - Speed_f;
             upperBound(3 * i + 1) = MAX_D;
         }
     }
@@ -167,18 +172,24 @@ int main()
     // 预测时刻
     int horizon = 10;
 
-    // 输入 {a, b}, a->相对车速，自车-目标车; b->相对距离，目标车-自车 > 0
-    std::vector<std::vector<double>> input{{2.0, 30.0}, {2.0, 30.0}, {2.0, 30.0}, {2.0, 30.0}, {2.0, 30.0}, {2.0, 30.0}, {2.0, 30.0}, {2.0, 30.0}, {2.0, 30.0}, {2.0, 30.0}};
-
     // 仿真参数初始化
     float S_f = S0_f;
     float S_r = S0_r;
     float Speed_r = Speed0_r;
-    std::vector<float> Vec_Vr{2};
+    std::vector<float> Vec_Vr{-2};
     std::vector<float> Vec_t{0};
     std::vector<float> Vec_D{S0_f - S0_r};
     std::vector<float> Vec_Acc{0};
-    for (int sim = 0; sim < 100; sim++)
+
+    // 输入 {a, b}, a->相对车速，自车-目标车; b->相对距离，目标车-自车 > 0
+    std::vector<std::vector<double>> input;
+    input.resize(horizon);
+    input[0] = {-Speed_f, S0_f};
+    for(int i = 1; i < horizon; ++i){
+        input[i] = {-Speed_f, S0_f+Speed_f*DT*i};
+    }
+    
+    for (int sim = 0; sim < 200; sim++)
     {
 
         Eigen::VectorXd out;
@@ -190,47 +201,54 @@ int main()
         S_f = S_f + Speed_f * DT;
         // 后车状态更新
         float AccNew = out(2);
-        float Vel = input[0][0];
-        input[0][0] = Vel + AccNew * DT;
-        input[0][1] = input[0][1] - Vel * DT - 0.5 * AccNew * DT * DT;
+        float Vel = input[0][0] + Speed_f;
+        if(Vel < 0) Vel = 0;
+        if(Vel < 1e-5 && AccNew < 0) AccNew = 0;
+        input[0][0] += AccNew * DT;
+        input[0][1] = input[0][1] - Vel * DT - 0.5 * AccNew * DT * DT + Speed_f * DT;
+
+        for(int i = 1; i < horizon; ++i){
+            input[i][0] = out(3 * i);
+            input[i][1] = out(3 * i + 1);
+        }
 
         std::cout << "加速度:" << AccNew << std::endl;
         std::cout << "相对速度:" << input[0][0] << std::endl;
         std::cout << "相对车距:" << input[0][1] << std::endl;
 
-        // Vec_D.push_back(S_f - S_r);
-        // Vec_Vr.push_back(Speed_r - Speed_f);
-        // Vec_t.push_back((sim + 1) * DT);
-        // Vec_Acc.push_back(AccNew);
+        Vec_D.push_back(input[0][1]);
+        Vec_Vr.push_back(input[0][0]);
+        Vec_t.push_back((sim + 1) * DT);
+        Vec_Acc.push_back(AccNew);
     }
 
-    // plt::figure_size(1500, 500);
-    // plt::subplot(1, 3, 1);
-    // plt::plot(Vec_t, Vec_Vr, "b-");
-    // plt::xlim(0, int(Vec_t.back()));
-    // plt::ylim(0, 15);
-    // plt::xlabel("t (s)");
-    // plt::ylabel("Vel (km/h)");
-    // plt::title("Vel-t");
-    // plt::grid(1);
+    plt::figure_size(1500, 500);
+    plt::subplot(1, 3, 1);
+    plt::plot(Vec_t, Vec_Vr, "b-");
+    plt::xlim(0, int(Vec_t.back()));
+    plt::ylim(-5, 5);
+    plt::xlabel("t (s)");
+    plt::ylabel("Vel (km/h)");
+    plt::title("Vel-t");
+    plt::grid(1);
 
-    // plt::subplot(1, 3, 2);
-    // plt::plot(Vec_t, Vec_Acc, "b-");
-    // plt::xlim(0, int(Vec_t.back()));
-    // plt::ylim(-10, 10);
-    // plt::xlabel("t (s)");
-    // plt::ylabel("Acc (m/s2)");
-    // plt::title("Acc-t");
-    // plt::grid(1);
+    plt::subplot(1, 3, 2);
+    plt::plot(Vec_t, Vec_Acc, "b-");
+    plt::xlim(0, int(Vec_t.back()));
+    plt::ylim(-5, 5);
+    plt::xlabel("t (s)");
+    plt::ylabel("Acc (m/s2)");
+    plt::title("Acc-t");
+    plt::grid(1);
 
-    // plt::subplot(1, 3, 3);
-    // plt::plot(Vec_t, Vec_D, "r-");
-    // plt::xlim(0, int(Vec_t.back()));
-    // plt::ylim(0, 30);
-    // plt::xlabel("t (s)");
-    // plt::ylabel("D (m)");
-    // plt::title("D-t");
-    // plt::grid(1);
-    // plt::show();
+    plt::subplot(1, 3, 3);
+    plt::plot(Vec_t, Vec_D, "r-");
+    plt::xlim(0, int(Vec_t.back()));
+    plt::ylim(0, 50);
+    plt::xlabel("t (s)");
+    plt::ylabel("D (m)");
+    plt::title("D-t");
+    plt::grid(1);
+    plt::show();
     return 0;
 }
